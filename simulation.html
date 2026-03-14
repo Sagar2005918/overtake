@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Overtake Safety Simulator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap');
+
+  :root {
+    --bg: #0a0c10;
+    --panel: #0e1117;
+    --panel2: #131720;
+    --border: #1e2535;
+    --accent: #00e5ff;
+    --green: #00ff88;
+    --red: #ff3355;
+    --yellow: #ffcc00;
+    --orange: #ff8800;
+    --road: #1a1e26;
+    --lane: #2a3040;
+    --stripe: #3a4560;
+    --text: #c8d4e8;
+    --dim: #556070;
+    --lead: #3b82f6;
+    --comp: #f59e0b;
+    --over: #a855f7;
+    --onco: #ef4444;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── TOP BAR ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  header h1 {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: var(--border);
+    color: var(--dim);
+    letter-spacing: 1px;
+  }
+  .verdict-badge {
+    margin-left: auto;
+    padding: 4px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    transition: all 0.2s;
+  }
+  .verdict-safe   { background: rgba(0,255,136,0.15); color: var(--green); border: 1px solid var(--green); }
+  .verdict-unsafe { background: rgba(255,51,85,0.15);  color: var(--red);   border: 1px solid var(--red);   }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    display: grid;
+    grid-template-columns: 220px 1fr 240px;
+    flex: 1;
+    overflow: hidden;
+    gap: 0;
+  }
+
+  /* ── LEFT PANEL ── */
+  .left-panel {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+  }
+
+  .panel-section { display: flex; flex-direction: column; gap: 6px; }
+  .section-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--dim);
+    text-transform: uppercase;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ctrl-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .ctrl-label { font-size: 12px; color: var(--text); flex: 1; }
+  .ctrl-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    min-width: 44px;
+    text-align: right;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 6px var(--accent);
+  }
+
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 7px;
+    border: 1px solid var(--border);
+    background: var(--panel2);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.active { background: rgba(0,229,255,0.1); border-color: var(--accent); color: var(--accent); }
+  .btn.danger  { border-color: var(--red); color: var(--red); }
+  .btn.danger:hover { background: rgba(255,51,85,0.1); }
+
+  /* speed buttons */
+  .speed-btns { display: flex; gap: 4px; }
+  .speed-btns .btn { flex: 1; padding: 5px 2px; font-size: 11px; }
+
+  /* ── CANVAS AREA ── */
+  .canvas-wrap {
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* overlay labels */
+  .overlay-label {
+    position: absolute;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  /* ── RIGHT PANEL ── */
+  .right-panel {
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+  }
+
+  .metric-block {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 10px;
+  }
+  .metric-block .m-label {
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .metric-block .m-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .metric-block .m-unit { font-size: 11px; color: var(--dim); margin-left: 3px; }
+
+  .cond-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .cond-row:last-child { border: none; }
+  .cond-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .cond-ok   { background: var(--green); box-shadow: 0 0 5px var(--green); }
+  .cond-fail { background: var(--red);   box-shadow: 0 0 5px var(--red);   }
+  .cond-name { flex: 1; }
+  .cond-num  { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--accent); }
+
+  /* mini gauge bar */
+  .gauge-wrap { margin-top: 3px; }
+  .gauge-bg {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .gauge-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.1s, background 0.2s;
+  }
+
+  /* ── BOTTOM BAR ── */
+  footer {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 5px 16px;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+  }
+  .footer-item { display: flex; align-items: center; gap: 5px; }
+  .footer-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .t-sim { margin-left: auto; }
+
+  /* overtake trigger flash */
+  @keyframes flashGreen { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  @keyframes flashRed   { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .flash-green { animation: flashGreen 0.4s 3; }
+  .flash-red   { animation: flashRed   0.4s 3; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Overtake Safety Sim</h1>
+  <span class="tag">CAMERA: COMP-CAR</span>
+  <span class="tag">REAL-TIME PHYSICS</span>
+  <div class="verdict-badge verdict-safe" id="mainVerdict">COMPUTING...</div>
+</header>
+
+<div class="main">
+
+  <!-- LEFT CONTROLS -->
+  <div class="left-panel">
+
+    <div class="panel-section">
+      <div class="section-title">Lead Car Speed</div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">Speed</span>
+        <span class="ctrl-val" id="leadSpeedVal">80 km/h</span>
+      </div>
+      <input type="range" id="leadSpeedSlider" min="40" max="120" value="80">
+      <div class="speed-btns">
+        <button class="btn" onclick="setLeadSpeed(60)">60</button>
+        <button class="btn" onclick="setLeadSpeed(80)">80</button>
+        <button class="btn" onclick="setLeadSpeed(100)">100</button>
+        <button class="btn" onclick="setLeadSpeed(120)">120</button>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-title">Computing Car Speed</div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">Speed</span>
+        <span class="ctrl-val" id="compSpeedVal">70 km/h</span>
+      </div>
+      <input type="range" id="compSpeedSlider" min="30" max="120" value="70">
+      <div class="speed-btns">
+        <button class="btn" onclick="setCompSpeed(50)">50</button>
+        <button class="btn" onclick="setCompSpeed(70)">70</button>
+        <button class="btn" onclick="setCompSpeed(90)">90</button>
+        <button class="btn" onclick="setCompSpeed(110)">110</button>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-title">Simulation</div>
+      <button class="btn active" id="pauseBtn" onclick="togglePause()">⏸ PAUSE</button>
+      <button class="btn" onclick="resetSim()">↺ RESET</button>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-title">Overtake Control</div>
+      <button class="btn" id="overtakeBtn" onclick="triggerOvertake()">▶ TRIGGER OVERTAKE</button>
+      <div style="font-size:11px; color:var(--dim); line-height:1.5; margin-top:4px;">
+        Overtake triggers automatically when SAFE, or force it manually.<br>
+        Watch the physics verdict update in real time.
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-title">Auto-Overtake</div>
+      <button class="btn" id="autoBtn" onclick="toggleAuto()">AUTO: OFF</button>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-title">Sim Speed</div>
+      <div class="speed-btns">
+        <button class="btn" onclick="setSimSpeed(0.5)">0.5×</button>
+        <button class="btn active" onclick="setSimSpeed(1)">1×</button>
+        <button class="btn" onclick="setSimSpeed(2)">2×</button>
+        <button class="btn" onclick="setSimSpeed(4)">4×</button>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-title">Legend</div>
+      <div class="footer-item"><div class="footer-dot" style="background:var(--lead)"></div> Lead Car (L)</div>
+      <div class="footer-item"><div class="footer-dot" style="background:var(--comp)"></div> Computing Car (C)</div>
+      <div class="footer-item"><div class="footer-dot" style="background:var(--over)"></div> Overtaking Car (O)</div>
+      <div class="footer-item"><div class="footer-dot" style="background:var(--onco)"></div> Oncoming Car (X)</div>
+    </div>
+
+  </div>
+
+  <!-- CANVAS -->
+  <div class="canvas-wrap">
+    <canvas id="simCanvas"></canvas>
+  </div>
+
+  <!-- RIGHT METRICS -->
+  <div class="right-panel">
+
+    <div class="section-title">Live Speeds</div>
+
+    <div class="metric-block">
+      <div class="m-label">Lead Car (L)</div>
+      <div><span class="m-val" id="mVL" style="color:var(--lead)">80</span><span class="m-unit">km/h</span></div>
+      <div class="gauge-wrap"><div class="gauge-bg"><div class="gauge-fill" id="gVL" style="background:var(--lead);width:67%"></div></div></div>
+    </div>
+
+    <div class="metric-block">
+      <div class="m-label">Computing Car (C)</div>
+      <div><span class="m-val" id="mVC" style="color:var(--comp)">80</span><span class="m-unit">km/h</span></div>
+      <div class="gauge-wrap"><div class="gauge-bg"><div class="gauge-fill" id="gVC" style="background:var(--comp);width:67%"></div></div></div>
+    </div>
+
+    <div class="metric-block">
+      <div class="m-label">Overtaking Car (O)</div>
+      <div><span class="m-val" id="mVO" style="color:var(--over)">—</span><span class="m-unit">km/h</span></div>
+      <div class="gauge-wrap"><div class="gauge-bg"><div class="gauge-fill" id="gVO" style="background:var(--over);width:0%"></div></div></div>
+    </div>
+
+    <div class="metric-block">
+      <div class="m-label">Oncoming Car (X)</div>
+      <div><span class="m-val" id="mVX" style="color:var(--onco)">80</span><span class="m-unit">km/h</span></div>
+      <div class="gauge-wrap"><div class="gauge-bg"><div class="gauge-fill" id="gVX" style="background:var(--onco);width:67%"></div></div></div>
+    </div>
+
+    <div class="section-title" style="margin-top:4px;">Safety Conditions</div>
+
+    <div class="metric-block">
+      <div class="cond-row">
+        <div class="cond-dot" id="dotClr"></div>
+        <span class="cond-name">Clearance</span>
+        <span class="cond-num" id="numClr">—m</span>
+      </div>
+      <div class="cond-row">
+        <div class="cond-dot" id="dotTTC"></div>
+        <span class="cond-name">TTC vs Required</span>
+        <span class="cond-num" id="numTTC">—s</span>
+      </div>
+      <div class="cond-row">
+        <div class="cond-dot" id="dotGap"></div>
+        <span class="cond-name">Merge Gap</span>
+        <span class="cond-num" id="numGap">—m</span>
+      </div>
+      <div class="cond-row">
+        <div class="cond-dot" id="dotOnc"></div>
+        <span class="cond-name">Oncoming Visible</span>
+        <span class="cond-num" id="numOnc">—m</span>
+      </div>
+    </div>
+
+    <div class="section-title">Physics Values</div>
+
+    <div class="metric-block" style="font-size:12px; line-height:1.9;">
+      <div class="cond-row" style="border:none;padding:1px 0">
+        <span class="cond-name" style="color:var(--dim)">Gap C→L</span>
+        <span class="cond-num" id="pGapCL">—</span>
+      </div>
+      <div class="cond-row" style="border:none;padding:1px 0">
+        <span class="cond-name" style="color:var(--dim)">d_pass</span>
+        <span class="cond-num" id="pDpass">—</span>
+      </div>
+      <div class="cond-row" style="border:none;padding:1px 0">
+        <span class="cond-name" style="color:var(--dim)">t_total</span>
+        <span class="cond-num" id="pTtot">—</span>
+      </div>
+      <div class="cond-row" style="border:none;padding:1px 0">
+        <span class="cond-name" style="color:var(--dim)">v_O peak</span>
+        <span class="cond-num" id="pVOpeak">—</span>
+      </div>
+      <div class="cond-row" style="border:none;padding:1px 0">
+        <span class="cond-name" style="color:var(--dim)">s_abort</span>
+        <span class="cond-num" id="pSabort">—</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <div class="footer-item"><div class="footer-dot" style="background:var(--lead)"></div> LEAD</div>
+  <div class="footer-item"><div class="footer-dot" style="background:var(--comp)"></div> COMP</div>
+  <div class="footer-item"><div class="footer-dot" style="background:var(--over)"></div> OVERTAKE</div>
+  <div class="footer-item"><div class="footer-dot" style="background:var(--onco)"></div> ONCOMING</div>
+  <span id="footOtState" style="color:var(--dim)">OVERTAKE: IDLE</span>
+  <span class="t-sim" id="footTime">t = 0.00 s</span>
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// PHYSICS ENGINE (ported from Python simulation)
+// ═══════════════════════════════════════════════════════
+const VEHICLE_LEN   = 5.0;
+const ACCEL_O       = 3.5;    // gentle acceleration for smooth overtake
+const BRAKE_DECEL   = 4.0;
+const LATERAL_TIME  = 2.5;   // slow smooth lane change
+const SAFETY_MARGIN = 10.0;
+const REACTION_TIME = 1.5;
+const DT            = 0.1;
+const FOLLOW_GAP    = 30.0;   // 30m gap between purple and yellow
+
+// Polynomial coefficients from cal.py  (np.polyfit on [40,60,80,120] -> [25,35,60,100])
+// a=0.003125, b=0.4625, c=0  — matches the calibrated speed/distance curve exactly.
+// safeDist also applies the +5m buffer used in cal.py's safety check.
+function safeDist(v_kmh) {
+  const d = 0.003125 * v_kmh * v_kmh + 0.4625 * v_kmh;
+  return Math.max(5.0, d + 5.0);  // +5m buffer matching cal.py
+}
+
+const toMs  = v => v / 3.6;
+const toKmh = v => v * 3.6;
+
+// ═══════════════════════════════════════════════════════
+// SIMULATION STATE
+// ═══════════════════════════════════════════════════════
+let state = {};
+let paused = false;
+let autoOvertake = false;
+let simSpeed = 1;
+let lastTs = null;
+let accumTime = 0;
+
+function initState() {
+  const leadSpeed = parseInt(document.getElementById('leadSpeedSlider').value);
+  const compSpeed = parseInt(document.getElementById('compSpeedSlider').value);
+  state = {
+    t: 0,
+    // Lead car
+    leadSpd:  leadSpeed,
+    leadPos:  0,
+    // Computing car
+    compSpd:  compSpeed,
+    compPos:  -(safeDist(compSpeed) + VEHICLE_LEN),
+    // Oncoming car
+    oncSpd:   8,               // km/h actual (shown as ×4 on UI for realism)
+    oncPos:   1400,             // relative to compPos at init — will be absolute
+    oncInitialized: false,
+    // Overtaking car
+    otActive: false,
+    otPhase:  'idle',   // idle | pullout | passing | pullback | merging | done
+    otSpd:    0,
+    otPos:    0,
+    otLane:   0,        // 0=right lane, 1=left lane (normalized 0-1)
+    otTimer:  0,
+    otStrategy: 'none',    // 'slot' | 'full' | 'none'
+    otChosenStrategy: 'full',
+    otPhaseDist:0,
+    otMergeTimer:0,
+    otTrail: [],       // [{worldPos, laneT}] history for curve path drawing
+    // Safety
+    safe: false,
+    reasons: [],
+    clearance: 0,
+    TTC: 0,
+    t_total: 0,
+    d_pass: 0,
+    v_O_peak: 0,
+    s_abort: 0,
+    gap_CL: 0,
+    distX: 0,
+    // Road scroll (relative to comp car — camera locked to comp)
+    roadOffset: 0,
+    // Oncoming speed variation
+    oncSpdTarget: 8,
+    oncSpdTimer: 0,
+    leadSpdTarget: leadSpeed,
+    leadSpdTimer: 0,
+    compSpdTarget: compSpeed,
+  };
+  // Set oncoming absolute position
+  state.oncPos = state.compPos + 1400;
+}
+
+function resetSim() {
+  initState();
+  updateUI();
+}
+
+// ═══════════════════════════════════════════════════════
+// PHYSICS STEP
+// ═══════════════════════════════════════════════════════
+function physicsStep(dt_real) {
+  // How many simulation steps to run
+  const steps = Math.max(1, Math.round(dt_real * simSpeed / DT));
+  for(let s=0; s<steps; s++) simStep();
+}
+
+function simStep() {
+  const s = state;
+  s.t += DT;
+
+  // -- Lead car speed (user slider) --
+  s.leadSpdTimer -= DT;
+  if(s.leadSpdTimer <= 0) {
+    s.leadSpdTarget = parseInt(document.getElementById('leadSpeedSlider').value);
+    s.leadSpdTimer = 1.5 + Math.random()*3;
+  }
+  if(Math.abs(s.leadSpd - s.leadSpdTarget) > 0.5)
+    s.leadSpd += Math.sign(s.leadSpdTarget - s.leadSpd) * Math.min(2*DT, Math.abs(s.leadSpd - s.leadSpdTarget));
+
+  // -- Computing car speed (user slider) --
+  s.compSpdTarget = parseInt(document.getElementById('compSpeedSlider').value);
+
+  // -- Move lead car --
+  s.leadPos += toMs(s.leadSpd) * DT;
+
+  // -- Computing car: approach user-set target speed, but also respect safe gap to lead --
+  const gap = s.leadPos - s.compPos - VEHICLE_LEN;
+  const reqGap = safeDist(s.compSpd);
+  if(gap < reqGap * 0.85)
+    s.compSpd = Math.max(0, s.compSpd - 4*DT/0.1);
+  else if(gap > reqGap*1.3 && s.compSpd < s.compSpdTarget)
+    s.compSpd = Math.min(s.compSpd + 2*DT/0.1, s.compSpdTarget);
+  else if(gap > reqGap*1.1 && s.compSpd < s.compSpdTarget)
+    s.compSpd = Math.min(s.compSpd + 1*DT/0.1, s.compSpdTarget);
+  else if(s.compSpd > s.compSpdTarget)
+    s.compSpd = Math.max(s.compSpd - 2*DT/0.1, s.compSpdTarget);
+  s.compPos += toMs(s.compSpd) * DT;
+
+  // -- Oncoming car --
+  // Slow down oncoming car when overtaking car is in its lane
+  let oncBraking = false;
+  if(s.otActive && s.otLane > 0.3) {
+    const otDistFromOnc = Math.abs(s.oncPos - s.otPos);
+    if(otDistFromOnc < 300) {
+      oncBraking = true;
+    }
+  }
+  if(oncBraking) {
+    // Brake hard when overtaker detected ahead in same lane
+    s.oncSpd = Math.max(20, s.oncSpd - toKmh(5.0 * DT));
+  } else {
+    // Normal speed logic
+    s.oncSpdTimer -= DT;
+    if(s.oncSpdTimer <= 0) {
+      s.oncSpdTarget = 6 + Math.random()*8;
+      s.oncSpdTimer = 8 + Math.random()*12;
+    }
+    if(Math.abs(s.oncSpd - s.oncSpdTarget) > 0.5)
+      s.oncSpd += Math.sign(s.oncSpdTarget - s.oncSpd) * Math.min(1.5*DT, Math.abs(s.oncSpd - s.oncSpdTarget));
+  }
+  s.oncPos -= toMs(s.oncSpd) * DT;
+  const oncDist = s.oncPos - s.compPos;
+  // compX is ~38% of canvas width; SCALE=1.6px/m
+  // Car is off left edge when its world pos < compPos - (compX + carHalfWidth) / SCALE
+  // Use a generous off-screen threshold: compPos - (compX + 60) / 1.6
+  const offScreenLeft = s.compPos - (window._simCompX + 60) / 1.6;
+  if(s.oncPos < offScreenLeft) {
+    s.oncPos = s.compPos + 1200 + Math.random()*600;
+    s.oncSpd = 6 + Math.random()*8;
+  }
+  s.distX = s.oncPos - s.compPos;
+
+  // -- Gap C→L --
+  s.gap_CL = Math.max(0, s.leadPos - s.compPos - VEHICLE_LEN);
+
+  // -- Safety analysis --
+  calcSafety();
+
+  // -- Auto overtake --
+  if(autoOvertake && s.safe && !s.otActive) {
+    startOvertake();
+  }
+
+  // -- Overtaking car physics --
+  if(s.otActive) {
+    updateOvertakeCar();
+    // Record trail point (every ~3 steps to keep array manageable)
+    if(!s._trailTick) s._trailTick = 0;
+    s._trailTick++;
+    if(s._trailTick % 3 === 0) {
+      s.otTrail.push({ worldPos: s.otPos, laneT: s.otLane });
+      if(s.otTrail.length > 120) s.otTrail.shift(); // keep last ~120 points
+    }
+  } else {
+    // Fade trail out when inactive
+    if(s.otTrail.length > 0) s.otTrail.shift();
+  }
+}
+
+function calcSafety() {
+  const s = state;
+  const v_C_ms = toMs(s.compSpd);
+  const v_X_ms = toMs(s.oncSpd);
+  const v_L_ms = toMs(s.leadSpd);
+
+  // -- Merge gap: shared prerequisite for BOTH strategies --
+  // Required gap derived from cal.py curve: safeDist(leadSpd) gives the speed-calibrated
+  // minimum following distance. O must fit centred with that buffer on each side.
+  const reqMergeGap  = safeDist(s.leadSpd);            // speed-calibrated minimum gap
+  const d_merge_pass = s.gap_CL - 2 * VEHICLE_LEN - SAFETY_MARGIN;
+  const canMergeGap  = s.gap_CL >= reqMergeGap && d_merge_pass >= VEHICLE_LEN;
+
+  // -- Strategy 1: Slot into merge gap --
+  const disc_slot    = v_C_ms*v_C_ms + 2*ACCEL_O*Math.max(1, d_merge_pass);
+  const t_A_slot     = (-v_C_ms + Math.sqrt(Math.max(0, disc_slot))) / ACCEL_O;
+  const v_O_peak_ms  = v_C_ms + ACCEL_O * t_A_slot;
+  const t_total_slot = t_A_slot + LATERAL_TIME * 2;
+
+  const d_X_slot       = v_X_ms * t_total_slot;
+  const clearance_slot = s.distX - d_X_slot - Math.max(1, d_merge_pass);
+
+  // -- Strategy 2: Full overtake (pass ahead of L) --
+  // canMergeGap is still required: O must eventually merge back into this same gap.
+  const d_full_pass  = s.gap_CL + 2 * VEHICLE_LEN + SAFETY_MARGIN;
+
+  const disc_full    = v_C_ms*v_C_ms + 2*ACCEL_O*d_full_pass;
+  const t_A_full     = (-v_C_ms + Math.sqrt(Math.max(0, disc_full))) / ACCEL_O;
+  const t_total_full = t_A_full + LATERAL_TIME * 2;
+
+  const d_X_full       = v_X_ms * t_total_full;
+  const clearance_full = s.distX - d_X_full - d_full_pass;
+
+  const closing = v_O_peak_ms + v_X_ms;
+  const TTC     = (closing > 0 && s.distX > 0) ? s.distX / closing : 99999;
+
+  // Abort distance
+  const s_react     = v_O_peak_ms * REACTION_TIME;
+  const s_brake_kin = v_O_peak_ms > v_C_ms ? (v_O_peak_ms*v_O_peak_ms - v_C_ms*v_C_ms)/(2*BRAKE_DECEL) : 0;
+  const s_abort     = s_react + s_brake_kin;
+
+  // Min merge gap for display — speed-calibrated from cal.py curve
+  const minMerge = reqMergeGap;
+
+  // -- Conditions --
+  const cond_onc = s.distX > 0;
+
+  // Neither strategy is safe without an adequate merge gap.
+  const cond_slot_clr = clearance_slot >= SAFETY_MARGIN;
+  const cond_slot_ttc = TTC >= (t_total_slot + REACTION_TIME);
+  const safe_slot     = cond_onc && canMergeGap && cond_slot_clr && cond_slot_ttc;
+
+  const cond_full_clr = clearance_full >= SAFETY_MARGIN;
+  const cond_full_ttc = TTC >= (t_total_full + REACTION_TIME);
+  const safe_full     = cond_onc && canMergeGap && cond_full_clr && cond_full_ttc;
+
+  // Safe only when merge gap fits AND at least one strategy clears oncoming traffic.
+  s.safe = canMergeGap && (safe_slot || safe_full);
+  s.otStrategy = safe_slot ? 'slot' : (safe_full ? 'full' : 'none');
+
+  // Diagnostic conditions
+  const cond_clr   = safe_slot ? cond_slot_clr : cond_full_clr;
+  const cond_ttc   = safe_slot ? cond_slot_ttc : cond_full_ttc;
+  const cond_merge = canMergeGap;
+
+  s.reasons = [];
+  if(!cond_merge) s.reasons.push('NO_GAP');
+  if(!cond_clr)   s.reasons.push('NO_CLR');
+  if(!cond_ttc)   s.reasons.push('LOW_TTC');
+  if(!cond_onc)   s.reasons.push('ONC_PAST');
+
+  // Store for UI
+  s.clearance  = safe_slot ? clearance_slot : clearance_full;
+  s.TTC        = TTC;
+  s.t_total    = safe_slot ? t_total_slot   : t_total_full;
+  s.d_pass     = safe_slot ? d_merge_pass   : d_full_pass;
+  s.v_O_peak   = toKmh(v_O_peak_ms);
+  s.s_abort    = s_abort;
+  s.cond_clr   = cond_clr;
+  s.cond_ttc   = cond_ttc;
+  s.cond_merge = cond_merge;
+  s.cond_onc   = cond_onc;
+  s.minMerge   = minMerge;
+  s.d_merge_pass = d_merge_pass;
+  s.canMergeGap  = canMergeGap;
+}
+
+// ═══════════════════════════════════════════════════════
+// OVERTAKING CAR STATE MACHINE
+// ═══════════════════════════════════════════════════════
+function startOvertake() {
+  const s = state;
+  if(s.otActive) return;
+  s.otActive    = true;
+  s.otPhase     = 'following';
+  s.otSpd       = s.compSpd;
+  s.otPos       = s.compPos - FOLLOW_GAP - VEHICLE_LEN;
+  s.otLane      = 0;
+  s.otTimer     = 0;
+  s.otFollowTimer = 1.2;
+  s.otPhaseDist = 0;
+  // Always use slot strategy — overtaker merges into gap, never passes ahead of lead
+  s.otChosenStrategy = 'slot';
+  // Target world position for slot strategy: centre of gap between C and L
+  const initGapCentre = s.compPos + VEHICLE_LEN + s.gap_CL / 2;
+  s.otSlotTarget = initGapCentre - VEHICLE_LEN / 2;
+}
+
+function updateOvertakeCar() {
+  const s = state;
+
+  if(s.otPhase === 'following') {
+    // Hard-lock position to exactly FOLLOW_GAP behind comp car
+    s.otFollowTimer -= DT;
+    const targetPos = s.compPos - FOLLOW_GAP - VEHICLE_LEN;
+    const posDiff = targetPos - s.otPos;
+    s.otSpd = s.compSpd + Math.sign(posDiff) * Math.min(Math.abs(posDiff) * 2, 15);
+    s.otPos += toMs(s.otSpd) * DT;
+    if(Math.abs(s.otPos - targetPos) < 0.3) s.otPos = targetPos;
+    if(s.otFollowTimer <= 0) {
+      s.otPhase = 'pullout';
+      s.otTimer = 0;
+      s.otPhaseDist = 0;
+      // Always slot strategy
+      s.otChosenStrategy = 'slot';
+      const followGapCentre = s.compPos + VEHICLE_LEN + s.gap_CL / 2;
+      s.otSlotTarget = followGapCentre - VEHICLE_LEN / 2;
+    }
+  }
+  else if(s.otPhase === 'pullout') {
+    // Smooth lateral move into left lane + gentle speed increase
+    s.otTimer += DT;
+    s.otLane = Math.min(1, s.otTimer / LATERAL_TIME);
+    s.otSpd = Math.min(s.compSpd + 15, 160);
+    s.otPos += toMs(s.otSpd) * DT;
+    if(s.otLane >= 1) {
+      s.otPhase = 'passing';
+      s.otTimer = 0;
+      s.otPhaseDist = 0;
+    }
+  }
+  else if(s.otPhase === 'passing') {
+    // Gradually accelerate
+    s.otSpd = Math.min(s.otSpd + toKmh(ACCEL_O * DT), 160);
+    s.otPos += toMs(s.otSpd) * DT;
+
+    if(s.otChosenStrategy === 'slot') {
+      // ── Slot strategy: target the CENTRE of the gap between C and L ──
+      // Centre = compPos + VEHICLE_LEN + gap_CL/2  (world coords of midpoint)
+      // O's nose should sit at that midpoint → O's rear = midpoint - VEHICLE_LEN
+      // We keep half the gap as breathing room on each side.
+      const gapCentre = s.compPos + VEHICLE_LEN + s.gap_CL / 2;
+      s.otSlotTarget = gapCentre - VEHICLE_LEN / 2; // O centred in gap
+      if(s.otPos >= s.otSlotTarget) {
+        s.otSpd = s.leadSpd;
+        s.otPos = s.otSlotTarget;
+        s.otPhase = 'merging';
+        s.otTimer = 0;
+      }
+    } else {
+      // ── Full-pass strategy: advance past lead car ──
+      // Extra VEHICLE_LEN * 1.5 ensures O is well clear of L before merging back.
+      const needed = s.gap_CL + 3.5 * VEHICLE_LEN + SAFETY_MARGIN;
+      if(s.otPos - s.compPos >= needed) {
+        s.otPhase = 'merging';
+        s.otTimer = 0;
+      }
+    }
+  }
+  else if(s.otPhase === 'merging') {
+    // Smooth lateral move back to right lane
+    s.otTimer += DT;
+    s.otLane = Math.max(0, 1 - s.otTimer / LATERAL_TIME);
+    // For slot strategy, pace with lead car; for full-pass, maintain speed
+    if(s.otChosenStrategy === 'slot') {
+      s.otSpd = s.leadSpd;
+      // Continuously track gap centre so O stays centred while merging laterally
+      const gapCentre = s.compPos + VEHICLE_LEN + s.gap_CL / 2;
+      s.otSlotTarget = gapCentre - VEHICLE_LEN / 2;
+      s.otPos = s.otSlotTarget;
+    } else {
+      s.otPos += toMs(s.otSpd) * DT;
+    }
+    if(s.otLane <= 0) {
+      s.otPhase = 'done';
+      s.otTimer = 0;
+    }
+  }
+  else if(s.otPhase === 'done') {
+    // Decelerate to lead car speed
+    if(s.otSpd > s.leadSpd + 2) s.otSpd -= toKmh(4.0 * DT);
+    else s.otSpd = s.leadSpd;
+    s.otPos += toMs(s.otSpd) * DT;
+    s.otTimer += DT;
+    if(s.otTimer > 1.5) {
+      s.otActive = false;
+      s.otPhase  = 'idle';
+      s.otLane   = 0;
+    }
+  }
+}
+
+function triggerOvertake() {
+  if(!state.otActive) startOvertake();
+}
+
+function togglePause() {
+  paused = !paused;
+  const btn = document.getElementById('pauseBtn');
+  btn.textContent = paused ? '▶ RESUME' : '⏸ PAUSE';
+  btn.classList.toggle('active', !paused);
+  if(!paused) { lastTs = null; loop(performance.now()); }
+}
+
+function toggleAuto() {
+  autoOvertake = !autoOvertake;
+  const btn = document.getElementById('autoBtn');
+  btn.textContent = autoOvertake ? 'AUTO: ON' : 'AUTO: OFF';
+  btn.classList.toggle('active', autoOvertake);
+}
+
+function setLeadSpeed(v) {
+  document.getElementById('leadSpeedSlider').value = v;
+  document.getElementById('leadSpeedVal').textContent = v + ' km/h';
+  state.leadSpdTarget = v;
+}
+
+function setCompSpeed(v) {
+  document.getElementById('compSpeedSlider').value = v;
+  document.getElementById('compSpeedVal').textContent = v + ' km/h';
+  state.compSpdTarget = v;
+}
+
+function setSimSpeed(v) {
+  simSpeed = v;
+  document.querySelectorAll('.speed-btns .btn').forEach(b=>{
+    b.classList.remove('active');
+    if(b.textContent === v+'×') b.classList.add('active');
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// CANVAS RENDERING
+// ═══════════════════════════════════════════════════════
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const wrap = canvas.parentElement;
+  canvas.width  = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+}
+
+// Car drawing helper — horizontal orientation
+// cx,cy = center; cw = width along road axis (horizontal); ch = height across road
+// headlights on RIGHT side (ahead = right), taillights on LEFT
+function drawCar(cx, cy, cw, ch, color, label, alpha=1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.roundRect(cx-cw/2, cy-ch/2, cw, ch, 3);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  // Windscreen (right/front side)
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath();
+  ctx.roundRect(cx+cw/2-cw*0.35-2, cy-ch/2+3, cw*0.35, ch-6, 2);
+  ctx.fill();
+  // Headlights (front = right)
+  ctx.fillStyle = '#fffaaa';
+  ctx.shadowColor = '#fffaaa'; ctx.shadowBlur = 6;
+  ctx.fillRect(cx+cw/2-3, cy-ch/2+2, 3, 5);
+  ctx.fillRect(cx+cw/2-3, cy+ch/2-7, 3, 5);
+  ctx.shadowBlur = 0;
+  // Label
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 11px Rajdhani, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, cx, cy);
+  ctx.restore();
+}
+
+// Oncoming car — headlights on LEFT side (it travels right→left)
+function drawOncomingCar(cx, cy, cw, ch, color, label) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.roundRect(cx-cw/2, cy-ch/2, cw, ch, 3);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  // Windscreen (left/front for oncoming)
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath();
+  ctx.roundRect(cx-cw/2+2, cy-ch/2+3, cw*0.35, ch-6, 2);
+  ctx.fill();
+  // Taillights (right side = rear for oncoming)
+  ctx.fillStyle = '#ff2222';
+  ctx.shadowColor='#ff2222'; ctx.shadowBlur=6;
+  ctx.fillRect(cx+cw/2, cy-ch/2+2, 3, 5);
+  ctx.fillRect(cx+cw/2, cy+ch/2-7, 3, 5);
+  ctx.shadowBlur=0;
+  ctx.fillStyle='#fff'; ctx.font='bold 11px Rajdhani,sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(label, cx, cy);
+  ctx.restore();
+}
+
+function render() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const s = state;
+
+  // ── Road layout (horizontal, top-down view rotated 90°) ──
+  // Camera locked to computing car.
+  // X-axis = forward direction: RIGHT = ahead, LEFT = behind.
+  // Upper half = right lane (same-direction traffic: L, C, O travel →)
+  // Lower half = left lane  (oncoming traffic: X travels ←)
+
+  const ROAD_H  = Math.min(H * 0.55, 200);   // total road height on screen
+  const LANE_H  = ROAD_H / 2;                 // each lane height
+  const roadY   = H / 2;                      // road center Y
+  const compX   = W * 0.38;                   // comp car fixed X — more road ahead (right)
+  window._simCompX = compX;                    // expose for physics off-screen check
+  const SCALE   = 1.6;                         // pixels per metre
+
+  // worldPos → screen X  (higher worldPos = further ahead = further right)
+  const worldToPx = (worldPos) => compX + (worldPos - s.compPos) * SCALE;
+
+  // Road background shoulder
+  ctx.fillStyle = '#15191f';
+  ctx.fillRect(0, roadY - ROAD_H/2 - 30, W, ROAD_H + 60);
+
+  // Road surface
+  ctx.fillStyle = '#1e2430';
+  ctx.fillRect(0, roadY - ROAD_H/2, W, ROAD_H);
+
+  // Lane edges (white)
+  ctx.strokeStyle = '#aab'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, roadY - ROAD_H/2); ctx.lineTo(W, roadY - ROAD_H/2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, roadY + ROAD_H/2); ctx.lineTo(W, roadY + ROAD_H/2); ctx.stroke();
+
+  // Center divider (yellow dashed)
+  ctx.setLineDash([18, 12]);
+  ctx.strokeStyle = '#cc9900';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, roadY); ctx.lineTo(W, roadY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Lane center dashes (upper/right lane, same direction)
+  const dashLen = 24, dashGap = 20, dashY = roadY - LANE_H/2;
+  const scrollMod = ((s.compPos * SCALE) % (dashLen + dashGap) + (dashLen+dashGap)) % (dashLen+dashGap);
+  ctx.setLineDash([dashLen, dashGap]);
+  ctx.strokeStyle = '#3a4a60'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-scrollMod, dashY);
+  ctx.lineTo(W + dashLen, dashY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ── Car dimensions (horizontal: wider along road axis) ──
+  const carW = 42, carH = 22;  // cw = 5m × ~8.4px/m along road, ch = across road
+
+  // Right/upper lane center Y (same-direction traffic)
+  const rLaneY = roadY - LANE_H/2;
+  // Left/lower lane center Y (oncoming traffic)
+  const lLaneY = roadY + LANE_H/2;
+
+  // Lead car
+  const leadX = worldToPx(s.leadPos);
+  if(leadX > -80 && leadX < W+80)
+    drawCar(leadX, rLaneY, carW, carH, '#3b82f6', 'L');
+
+  // Computing car (always at compX)
+  drawCar(compX, rLaneY, carW, carH, '#f59e0b', 'C');
+
+  // Overtaking car
+  {
+    const easeLane = t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+
+    const otWorldPos = s.otActive ? s.otPos : (s.compPos - FOLLOW_GAP - VEHICLE_LEN);
+    const otX = worldToPx(otWorldPos);
+    const smoothLane = easeLane(Math.max(0, Math.min(1, s.otActive ? s.otLane : 0)));
+    const otY = rLaneY + (lLaneY - rLaneY + carH * 0.5) * smoothLane;
+
+    // ── Draw Catmull-Rom curve trail through recorded world positions ──
+    if(s.otTrail.length >= 4) {
+      // Convert trail to screen coords
+      const pts = s.otTrail.map(p => ({
+        x: worldToPx(p.worldPos),
+        y: rLaneY + (lLaneY - rLaneY + carH * 0.5) * easeLane(Math.max(0, Math.min(1, p.laneT)))
+      }));
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(168,85,247,0.35)';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([8, 10]);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+
+      // Catmull-Rom spline through points
+      const catmullRom = (p0, p1, p2, p3, t) => {
+        const t2 = t*t, t3 = t2*t;
+        return {
+          x: 0.5*((2*p1.x)+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*t2+(-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
+          y: 0.5*((2*p1.y)+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*t2+(-p0.y+3*p1.y-3*p2.y+p3.y)*t3)
+        };
+      };
+
+      let started = false;
+      for(let i = 1; i < pts.length - 2; i++) {
+        const p0 = pts[i-1], p1 = pts[i], p2 = pts[i+1], p3 = pts[i+2];
+        for(let t = 0; t <= 1; t += 0.1) {
+          const pt = catmullRom(p0, p1, p2, p3, t);
+          if(!started) { ctx.moveTo(pt.x, pt.y); started = true; }
+          else ctx.lineTo(pt.x, pt.y);
+        }
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    // ── Compute steering angle from recent trail for car rotation ──
+    let angle = 0;
+    if(s.otTrail.length >= 2 && s.otActive) {
+      const last = s.otTrail[s.otTrail.length - 1];
+      const prev = s.otTrail[Math.max(0, s.otTrail.length - 6)];
+      const px = worldToPx(prev.worldPos);
+      const py = rLaneY + (lLaneY - rLaneY + carH*0.5) * easeLane(Math.max(0, Math.min(1, prev.laneT)));
+      const lx = worldToPx(last.worldPos);
+      const ly = rLaneY + (lLaneY - rLaneY + carH*0.5) * easeLane(Math.max(0, Math.min(1, last.laneT)));
+      const dxT = lx - px, dyT = ly - py;
+      const dist = Math.sqrt(dxT*dxT + dyT*dyT);
+      if(dist > 1) angle = Math.atan2(dyT, dxT) * 0.55;
+    }
+
+    // ── Draw car rotated along its path ──
+    if(otX > -80 && otX < W + 80) {
+      ctx.save();
+      ctx.translate(otX, otY);
+      ctx.rotate(angle);
+      ctx.translate(-otX, -otY);
+      drawCar(otX, otY, carW, carH, '#a855f7', 'O', s.otActive ? 1 : 0.75);
+      ctx.restore();
+    }
+  }
+
+  // Oncoming car (in lower lane, travels right→left = decreasing worldPos)
+  const oncX = worldToPx(s.oncPos);
+  if(oncX > -120 && oncX < W+120)
+    drawOncomingCar(oncX, lLaneY, carW, carH, '#ef4444', 'X');
+
+  // ── Gap annotations ──
+  // Gap C→L: horizontal bracket above upper lane
+  const gapStartX = compX + carW/2;
+  const gapEndX   = leadX - carW/2;
+  if(gapEndX > 0 && gapStartX < W && gapEndX > gapStartX) {
+    ctx.save();
+    ctx.strokeStyle = s.cond_merge ? '#00ff88' : '#ff8800';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3,3]);
+    const annotY = rLaneY - carH/2 - 8;
+    ctx.beginPath(); ctx.moveTo(gapStartX, annotY); ctx.lineTo(gapEndX, annotY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = s.cond_merge ? '#00ff88' : '#ff8800';
+    ctx.font = '10px Share Tech Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(s.gap_CL.toFixed(0)+'m', (gapStartX+gapEndX)/2, annotY - 4);
+    ctx.restore();
+  }
+
+  // Distance to oncoming: horizontal bracket below lower lane
+  const dxStartX = compX;
+  const dxEndX   = oncX;
+  if(dxEndX > dxStartX && dxEndX < W + 20) {
+    ctx.save();
+    ctx.strokeStyle = s.cond_ttc ? '#00e5ff' : '#ff3355';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4,4]);
+    const annotY2 = lLaneY + carH/2 + 8;
+    ctx.beginPath(); ctx.moveTo(dxStartX, annotY2); ctx.lineTo(dxEndX, annotY2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = s.cond_ttc ? '#00e5ff' : '#ff3355';
+    ctx.font = '10px Share Tech Mono, monospace';
+    ctx.textAlign = 'center';
+    const midX = Math.max(30, Math.min(W-10, (dxStartX+dxEndX)/2));
+    ctx.fillText(s.distX.toFixed(0)+'m', midX, annotY2 + 12);
+    ctx.restore();
+  }
+
+  // ── Safety verdict overlay ──
+  ctx.save();
+  ctx.fillStyle = s.safe ? 'rgba(0,255,136,0.08)' : 'rgba(255,51,85,0.08)';
+  ctx.fillRect(0,0,W,H);
+  ctx.restore();
+
+  // Overtake phase label (bottom-left)
+  if(s.otActive) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(168,85,247,0.15)';
+    ctx.fillRect(16, H-44, 200, 28);
+    ctx.strokeStyle = '#a855f7';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(16, H-44, 200, 28);
+    ctx.fillStyle = '#a855f7';
+    ctx.font = 'bold 12px Rajdhani, sans-serif';
+    ctx.textAlign = 'center';
+    const phases = {following:'FOLLOWING C', pullout:'PULLING OUT', passing: s.otChosenStrategy==='slot'?'PASSING → GAP':'PASSING → LEAD', merging:'MERGING IN', done:'MERGING DONE'};
+    ctx.fillText('OT: ' + (phases[s.otPhase]||s.otPhase.toUpperCase()), 116, H-26);
+    ctx.restore();
+  }
+
+  // Speed labels: above each same-direction car, below oncoming
+  ctx.save();
+  ctx.font = '10px Share Tech Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#3b82f6';
+  if(leadX > 0 && leadX < W)
+    ctx.fillText(s.leadSpd.toFixed(0)+' km/h', leadX, rLaneY - carH/2 - 14);
+  ctx.fillStyle = '#f59e0b';
+  ctx.fillText(s.compSpd.toFixed(0)+' km/h', compX, rLaneY - carH/2 - 14);
+  ctx.fillStyle = '#ef4444';
+  if(oncX > 0 && oncX < W)
+    ctx.fillText((s.oncSpd*4).toFixed(0)+' km/h', oncX, lLaneY + carH/2 + 14);
+  {
+    const easeLane2 = t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+    const otWorldPos2 = s.otActive ? s.otPos : (s.compPos - FOLLOW_GAP - VEHICLE_LEN);
+    const otX2 = worldToPx(otWorldPos2);
+    const otY2 = rLaneY + (lLaneY - rLaneY + carH*0.5) * easeLane2(Math.max(0, Math.min(1, s.otActive ? s.otLane : 0)));
+    const otDisplaySpd = s.otActive ? s.otSpd : s.compSpd;
+    ctx.fillStyle = '#a855f7';
+    if(otX2 > 0 && otX2 < W)
+      ctx.fillText(otDisplaySpd.toFixed(0)+' km/h', otX2, otY2 - carH/2 - 14);
+  }
+  ctx.restore();
+
+  // Direction arrows: right side = ahead (→ for same-direction, ← for oncoming)
+  ctx.save();
+  // Same-direction arrow (→) on right edge, upper lane
+  ctx.fillStyle = '#2a3550';
+  ctx.fillRect(W-36, rLaneY-10, 28, 20);
+  ctx.fillStyle = '#556080';
+  ctx.beginPath();
+  ctx.moveTo(W-6, rLaneY);
+  ctx.lineTo(W-20, rLaneY-8);
+  ctx.lineTo(W-20, rLaneY+8);
+  ctx.closePath();
+  ctx.fill();
+  // Oncoming arrow (←) on left edge, lower lane
+  ctx.fillStyle = '#3a2050';
+  ctx.fillRect(8, lLaneY-10, 28, 20);
+  ctx.fillStyle = '#7a4090';
+  ctx.beginPath();
+  ctx.moveTo(6, lLaneY);
+  ctx.lineTo(20, lLaneY-8);
+  ctx.lineTo(20, lLaneY+8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════
+// UI UPDATES
+// ═══════════════════════════════════════════════════════
+function updateUI() {
+  const s = state;
+
+  // Header verdict
+  const vBadge = document.getElementById('mainVerdict');
+  if(s.safe) {
+    vBadge.textContent = '✓ SAFE TO OVERTAKE [SLOT INTO GAP]';
+    vBadge.className = 'verdict-badge verdict-safe';
+  } else {
+    const r = s.reasons.join(' · ');
+    vBadge.textContent = '✗ NOT SAFE' + (r ? ' — '+r : '');
+    vBadge.className = 'verdict-badge verdict-unsafe';
+  }
+
+  // Speed meters — oncoming shown ×4 for realism, gauge based on display value
+  const ONC_DISPLAY_MULT = 4;
+  const pct = v => Math.min(100, (v/130)*100) + '%';
+  const pctOnc = v => Math.min(100, (v/80)*100) + '%';  // gauge scaled to display speed
+  document.getElementById('mVL').textContent  = s.leadSpd.toFixed(0);
+  document.getElementById('mVC').textContent  = s.compSpd.toFixed(0);
+  document.getElementById('mVO').textContent  = s.otActive ? s.otSpd.toFixed(0) : '—';
+  document.getElementById('mVX').textContent  = (s.oncSpd * ONC_DISPLAY_MULT).toFixed(0);
+  document.getElementById('gVL').style.width  = pct(s.leadSpd);
+  document.getElementById('gVC').style.width  = pct(s.compSpd);
+  document.getElementById('gVO').style.width  = s.otActive ? pct(s.otSpd) : '0%';
+  document.getElementById('gVX').style.width  = pctOnc(s.oncSpd * ONC_DISPLAY_MULT);
+
+  // Slider labels
+  document.getElementById('leadSpeedVal').textContent = parseInt(document.getElementById('leadSpeedSlider').value) + ' km/h';
+  document.getElementById('compSpeedVal').textContent = parseInt(document.getElementById('compSpeedSlider').value) + ' km/h';
+
+  // Conditions
+  function setDot(id, ok) {
+    const el = document.getElementById(id);
+    el.className = 'cond-dot ' + (ok ? 'cond-ok' : 'cond-fail');
+  }
+  setDot('dotClr',  s.cond_clr);
+  setDot('dotTTC',  s.cond_ttc);
+  setDot('dotGap',  s.cond_merge);
+  setDot('dotOnc',  s.cond_onc);
+
+  document.getElementById('numClr').textContent  = s.clearance.toFixed(1)+'m';
+  document.getElementById('numTTC').textContent  = (s.TTC<9999?s.TTC.toFixed(1):'∞')+'s';
+  document.getElementById('numGap').textContent  = s.gap_CL.toFixed(1)+'/'+s.minMerge.toFixed(1)+'m';
+  document.getElementById('numOnc').textContent  = s.distX.toFixed(0)+'m';
+
+  // Physics
+  document.getElementById('pGapCL').textContent   = s.gap_CL.toFixed(1)+' m';
+  document.getElementById('pDpass').textContent   = s.d_pass.toFixed(1)+' m';
+  document.getElementById('pTtot').textContent    = s.t_total.toFixed(2)+' s';
+  document.getElementById('pVOpeak').textContent  = s.v_O_peak.toFixed(1)+' km/h';
+  document.getElementById('pSabort').textContent  = s.s_abort.toFixed(1)+' m';
+
+  // Footer
+  document.getElementById('footTime').textContent = 't = '+s.t.toFixed(1)+' s';
+  const phaseMap = {idle:'IDLE', following:'FOLLOWING', pullout:'PULLING OUT', passing:'PASSING', merging:'MERGING', done:'FINISHING'};
+  document.getElementById('footOtState').textContent =
+    'OVERTAKE: ' + (s.otActive ? (phaseMap[s.otPhase]||s.otPhase).toUpperCase() : 'IDLE');
+
+  // Overtake button
+  const obtn = document.getElementById('overtakeBtn');
+  obtn.disabled = s.otActive;
+  obtn.style.opacity = s.otActive ? '0.4' : '1';
+  if(s.safe && !s.otActive) {
+    obtn.style.borderColor = 'var(--green)';
+    obtn.style.color = 'var(--green)';
+  } else if(!s.otActive) {
+    obtn.style.borderColor = 'var(--red)';
+    obtn.style.color = 'var(--red)';
+  } else {
+    obtn.style.borderColor = 'var(--dim)';
+    obtn.style.color = 'var(--dim)';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// MAIN LOOP
+// ═══════════════════════════════════════════════════════
+function loop(ts) {
+  if(paused) return;
+  if(lastTs === null) lastTs = ts;
+  const dt = Math.min((ts - lastTs)/1000, 0.05); // cap at 50ms
+  lastTs = ts;
+
+  physicsStep(dt);
+  render();
+  updateUI();
+
+  requestAnimationFrame(loop);
+}
+
+// ── Slider live update ──
+document.getElementById('leadSpeedSlider').addEventListener('input', function() {
+  document.getElementById('leadSpeedVal').textContent = this.value + ' km/h';
+  state.leadSpdTarget = parseInt(this.value);
+});
+document.getElementById('compSpeedSlider').addEventListener('input', function() {
+  document.getElementById('compSpeedVal').textContent = this.value + ' km/h';
+  state.compSpdTarget = parseInt(this.value);
+});
+
+// ── Init ──
+window._simCompX = window.innerWidth * 0.38; // fallback before first render
+resizeCanvas();
+window.addEventListener('resize', () => { resizeCanvas(); render(); });
+initState();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
